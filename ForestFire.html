@@ -1,0 +1,1776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Forest Fire Spread Simulation Using BFS — Academic Project Report</title>
+<style>
+  /* ── DESIGN TOKENS ── */
+  :root {
+    --forest-deep:   #1A3A2A;
+    --forest-mid:    #2D5A3D;
+    --forest-light:  #4A8C5C;
+    --fire-orange:   #E8530A;
+    --fire-amber:    #F4A623;
+    --bark:          #6B4226;
+    --ash:           #5A5A5A;
+    --paper:         #FAFAF7;
+    --paper-warm:    #F3F0E8;
+    --code-bg:       #0F1E14;
+    --code-text:     #A8D8A0;
+    --border:        #CBD5C0;
+    --accent-line:   #E8530A;
+    --text-main:     #1C2419;
+    --text-muted:    #6A7A60;
+    --toc-bg:        #EEF3E8;
+  }
+
+  /* ── RESET & BASE ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; font-size: 16px; }
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: var(--paper);
+    color: var(--text-main);
+    line-height: 1.8;
+  }
+
+  /* ── COVER PAGE ── */
+  .cover {
+    background: linear-gradient(160deg, var(--forest-deep) 0%, #0D2618 60%, #1A1A0A 100%);
+    color: #fff;
+    padding: 80px 60px 60px;
+    position: relative;
+    overflow: hidden;
+    min-height: 420px;
+  }
+  .cover::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 80% 50%, rgba(232,83,10,0.18) 0%, transparent 65%);
+    pointer-events: none;
+  }
+  .cover-label {
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    color: var(--fire-amber);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .cover-label::after { content: ''; flex: 1; height: 1px; background: rgba(244,166,35,0.35); }
+  .cover h1 {
+    font-size: clamp(1.9rem, 4vw, 3rem);
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 16px;
+    letter-spacing: -0.02em;
+  }
+  .cover h1 span { color: var(--fire-orange); }
+  .cover-sub {
+    font-size: 1.05rem;
+    color: rgba(255,255,255,0.72);
+    font-style: italic;
+    margin-bottom: 48px;
+  }
+  .cover-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 24px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    padding-top: 32px;
+  }
+  .meta-item { display: flex; flex-direction: column; gap: 4px; }
+  .meta-label {
+    font-family: 'Courier New', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.45);
+    text-transform: uppercase;
+  }
+  .meta-value { font-size: 0.9rem; color: rgba(255,255,255,0.88); }
+
+  /* ── LAYOUT ── */
+  .main-wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 32px 80px;
+  }
+
+  /* ── TOC ── */
+  .toc-block {
+    background: var(--toc-bg);
+    border-left: 4px solid var(--forest-light);
+    border-radius: 0 8px 8px 0;
+    padding: 32px 36px;
+    margin: 48px 0 56px;
+  }
+  .toc-block h2 {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--forest-mid);
+    margin-bottom: 20px;
+  }
+  .toc-block ol {
+    list-style: none;
+    counter-reset: toc;
+    columns: 2;
+    column-gap: 32px;
+  }
+  @media (max-width: 600px) { .toc-block ol { columns: 1; } }
+  .toc-block li {
+    counter-increment: toc;
+    padding: 5px 0;
+    font-size: 0.9rem;
+    display: flex; align-items: baseline; gap: 10px;
+    break-inside: avoid;
+  }
+  .toc-block li::before {
+    content: counter(toc, decimal-leading-zero);
+    font-family: 'Courier New', monospace;
+    font-size: 0.72rem;
+    color: var(--fire-orange);
+    flex-shrink: 0;
+  }
+  .toc-block a { color: var(--forest-mid); text-decoration: none; }
+  .toc-block a:hover { color: var(--fire-orange); text-decoration: underline; }
+
+  /* ── SECTIONS ── */
+  .section {
+    margin-bottom: 64px;
+    scroll-margin-top: 24px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--border);
+    position: relative;
+  }
+  .section-header::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; left: 0;
+    width: 60px; height: 2px;
+    background: var(--fire-orange);
+  }
+  .section-num {
+    font-family: 'Courier New', monospace;
+    font-size: 0.72rem;
+    background: var(--fire-orange);
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.1em;
+    flex-shrink: 0;
+  }
+  .section h2 {
+    font-size: 1.55rem;
+    font-weight: 700;
+    color: var(--forest-deep);
+    line-height: 1.25;
+  }
+  .section h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--forest-mid);
+    margin: 28px 0 12px;
+    padding-left: 12px;
+    border-left: 3px solid var(--forest-light);
+  }
+  .section h4 {
+    font-size: 0.97rem;
+    font-weight: 700;
+    color: var(--bark);
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: 'Courier New', monospace;
+  }
+  .section p { margin-bottom: 14px; font-size: 0.97rem; }
+  .section ul, .section ol {
+    margin: 10px 0 16px 24px;
+    font-size: 0.96rem;
+  }
+  .section li { margin-bottom: 6px; }
+
+  /* ── CALLOUT / NOTE ── */
+  .callout {
+    background: linear-gradient(135deg, #EAF3EB 0%, #F5F9F3 100%);
+    border-left: 4px solid var(--forest-light);
+    border-radius: 0 6px 6px 0;
+    padding: 18px 22px;
+    margin: 20px 0;
+    font-size: 0.93rem;
+  }
+  .callout.fire {
+    background: linear-gradient(135deg, #FFF0EA 0%, #FFF8F5 100%);
+    border-color: var(--fire-orange);
+  }
+  .callout strong { color: var(--forest-deep); }
+
+  /* ── CODE BLOCKS ── */
+  pre {
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 28px 28px;
+    overflow-x: auto;
+    margin: 20px 0;
+    position: relative;
+    border: 1px solid #1E3828;
+  }
+  pre::before {
+    content: attr(data-lang);
+    position: absolute;
+    top: 10px; right: 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: rgba(168,216,160,0.45);
+    text-transform: uppercase;
+  }
+  code {
+    font-family: 'Courier New', 'Lucida Console', monospace;
+    font-size: 0.84rem;
+    line-height: 1.7;
+    color: var(--code-text);
+  }
+  .kw  { color: #79C0FF; }
+  .fn  { color: #D2A8FF; }
+  .st  { color: #A5D6FF; }
+  .cm  { color: #8B949E; font-style: italic; }
+  .nu  { color: #F8C555; }
+  .cl  { color: #FCDBA0; }
+  .op  { color: #FF7B72; }
+
+  /* inline code */
+  p code, li code, td code {
+    background: #E8F2E5;
+    color: var(--forest-deep);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.83rem;
+    border: 1px solid #C5D8BC;
+  }
+
+  /* ── ASCII DIAGRAMS ── */
+  .diagram {
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 24px 28px;
+    overflow-x: auto;
+    margin: 20px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: #A8D8A0;
+    border: 1px solid #1E3828;
+    white-space: pre;
+  }
+  .diagram .fire-cell { color: #E8530A; }
+  .diagram .water-cell { color: #5BC8F5; }
+  .diagram .title-line { color: #F4A623; font-weight: bold; }
+
+  /* ── TABLES ── */
+  .table-wrap { overflow-x: auto; margin: 20px 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  thead { background: var(--forest-deep); color: #fff; }
+  thead th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    font-size: 0.82rem;
+  }
+  tbody tr:nth-child(even) { background: var(--paper-warm); }
+  tbody tr:hover { background: #E8F2E5; }
+  td, th { padding: 11px 16px; border-bottom: 1px solid var(--border); }
+  td:first-child { font-weight: 600; color: var(--forest-mid); }
+
+  /* ── GRID VISUALIZER ── */
+  .grid-visual {
+    display: inline-grid;
+    gap: 3px;
+    padding: 18px;
+    background: var(--forest-deep);
+    border-radius: 8px;
+    margin: 16px 0;
+  }
+  .grid-cell {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0;
+  }
+  .cell-tree    { background: #2E7D32; color: #A5D6A7; }
+  .cell-burning { background: #E8530A; color: #fff; }
+  .cell-burned  { background: #37474F; color: #90A4AE; }
+  .cell-water   { background: #0277BD; color: #B3E5FC; }
+  .cell-break   { background: #795548; color: #D7CCC8; }
+  .cell-empty   { background: #1B4332; color: #81C784; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    margin: 16px 0;
+    font-size: 0.83rem;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; }
+  .legend-dot {
+    width: 16px; height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  /* ── COMPLEXITY BADGE ── */
+  .complexity {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--code-bg);
+    color: var(--fire-amber);
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    padding: 5px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--forest-light);
+    margin: 4px 4px 4px 0;
+  }
+
+  /* ── REPORT CARD ── */
+  .report-card {
+    background: linear-gradient(135deg, var(--forest-deep) 0%, #0F2419 100%);
+    color: #fff;
+    border-radius: 10px;
+    padding: 32px 36px;
+    margin: 24px 0;
+  }
+  .report-card h4 {
+    color: var(--fire-amber);
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.12em;
+    font-size: 0.7rem;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+  .report-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+  }
+  .report-item { border-left: 2px solid var(--forest-light); padding-left: 14px; }
+  .report-item-label { font-size: 0.73rem; color: rgba(255,255,255,0.5); margin-bottom: 5px; font-family: 'Courier New', monospace; }
+  .report-item-val { font-size: 0.92rem; color: rgba(255,255,255,0.9); }
+  .fire-val { color: var(--fire-orange) !important; }
+  .safe-val { color: #81C784 !important; }
+
+  /* ── Q&A ── */
+  .qa-block {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 16px 0;
+    overflow: hidden;
+  }
+  .qa-question {
+    background: var(--forest-deep);
+    color: #fff;
+    padding: 14px 20px;
+    font-size: 0.93rem;
+    font-weight: 600;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .qa-num {
+    background: var(--fire-orange);
+    color: #fff;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem;
+    font-family: 'Courier New', monospace;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .qa-answer {
+    padding: 16px 20px;
+    font-size: 0.91rem;
+    background: #FAFDF8;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── PSEUDOCODE ── */
+  .pseudo {
+    background: #F0F4EE;
+    border: 1px solid #C5D8BC;
+    border-radius: 8px;
+    padding: 24px 28px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.83rem;
+    line-height: 1.85;
+    color: #1A2E1A;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    margin: 20px 0;
+  }
+  .pseudo .p-kw  { color: #2E7D32; font-weight: bold; }
+  .pseudo .p-fn  { color: #6A1B9A; }
+  .pseudo .p-cm  { color: #888; font-style: italic; }
+  .pseudo .p-nu  { color: #BF360C; }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: var(--forest-deep);
+    color: rgba(255,255,255,0.55);
+    text-align: center;
+    padding: 28px;
+    font-size: 0.8rem;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.06em;
+    margin-top: 80px;
+  }
+
+  /* ── PRINT ── */
+  @media print {
+    .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    pre, .diagram { break-inside: avoid; }
+    .section { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ COVER PAGE -->
+<div class="cover">
+  <div class="cover-label">Academic Project Report &nbsp;|&nbsp; Data Structures &amp; Algorithms</div>
+  <h1>Forest Fire Spread Simulation<br/><span>Using Breadth‑First Search (BFS)</span></h1>
+  <div class="cover-sub">
+    Environmental Safety &amp; Disaster Management · Graph Traversal Application
+  </div>
+  <div class="cover-meta">
+    <div class="meta-item">
+      <span class="meta-label">Domain</span>
+      <span class="meta-value">Environmental Safety / Disaster Mgmt</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Algorithm</span>
+      <span class="meta-value">Breadth‑First Search (BFS)</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Data Structure</span>
+      <span class="meta-value">2D Matrix + Queue (deque)</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Language</span>
+      <span class="meta-value">Python 3.x</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Complexity</span>
+      <span class="meta-value">O(V + E) — Worst Case O(N × M)</span>
+    </div>
+  </div>
+</div>
+
+<div class="main-wrap">
+
+<!-- ═══════════════════════════════════════════ TABLE OF CONTENTS -->
+<div class="toc-block">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li><a href="#s1">Problem Statement</a></li>
+    <li><a href="#s2">Concept Explanation</a></li>
+    <li><a href="#s3">System Design</a></li>
+    <li><a href="#s4">Algorithm Design</a></li>
+    <li><a href="#s5">Pseudocode</a></li>
+    <li><a href="#s6">Python Implementation</a></li>
+    <li><a href="#s7">Complexity Analysis</a></li>
+    <li><a href="#s8">Scalability Discussion</a></li>
+    <li><a href="#s9">Area Analysis Report</a></li>
+    <li><a href="#s10">Sample Input &amp; Output</a></li>
+    <li><a href="#s11">Advantages &amp; Limitations</a></li>
+    <li><a href="#s12">Future Enhancements</a></li>
+    <li><a href="#s13">Viva / Exam Questions</a></li>
+    <li><a href="#s14">Conclusion</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 1 -->
+<div class="section" id="s1">
+  <div class="section-header">
+    <span class="section-num">01</span>
+    <h2>Problem Statement</h2>
+  </div>
+
+  <h3>The Real-World Challenge</h3>
+  <p>
+    Forest fires are among the most devastating natural disasters affecting our planet. Every year, millions of hectares of forest are destroyed across continents — from the Amazon rainforest in South America to the boreal forests of Siberia and the eucalyptus woodlands of Australia. The 2019–2020 Australian bushfire season alone burned approximately <strong>18.6 million hectares</strong>, killed an estimated 3 billion animals, and displaced thousands of people. In India, forests in Uttarakhand, Himachal Pradesh, and the Northeast routinely face seasonal fire threats.
+  </p>
+  <p>
+    The fundamental challenge facing environmental agencies and disaster management teams is not simply detecting a fire — it is <em>predicting where it will spread next</em>. A fire that begins in one corner of a national park can, within hours, engulf vast areas depending on wind speed, terrain, vegetation type, and humidity. Without accurate prediction models, evacuation decisions are made too late, firefighting resources are misallocated, and containment efforts fail.
+  </p>
+
+  <h3>Why Simulation Matters</h3>
+  <p>
+    Traditional firefighting relies on human observation, satellite imagery reviewed after delays, and experience-based intuition. These approaches are reactive rather than proactive. A computational simulation that models fire spread in advance provides:
+  </p>
+  <ul>
+    <li><strong>Predictive power:</strong> Agencies can anticipate fire perimeters hours before they occur.</li>
+    <li><strong>Resource optimization:</strong> Fire crews and aircraft can be pre-positioned at predicted spread zones.</li>
+    <li><strong>Evacuation planning:</strong> Safe corridors and danger zones can be identified and communicated to civilians.</li>
+    <li><strong>Policy decisions:</strong> Controlled burns, firebreak installation, and vegetation management can be data-driven.</li>
+    <li><strong>Training:</strong> Firefighters can train against simulated scenarios without real-world risk.</li>
+  </ul>
+
+  <div class="callout fire">
+    <strong>Project Objective:</strong> This project implements a Breadth-First Search (BFS) based forest fire spread simulator that models fire propagation across a 2D grid of terrain, incorporates environmental factors such as wind, humidity, slope, and vegetation, and generates hourly progression reports to support disaster management decision-making.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 2 -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <span class="section-num">02</span>
+    <h2>Concept Explanation</h2>
+  </div>
+
+  <h3>Why BFS Models Fire Spread Naturally</h3>
+  <p>
+    Breadth-First Search is a graph traversal algorithm that explores all nodes at the current "distance" from a source before moving to nodes farther away. It processes neighbors level by level, expanding outward like ripples from a stone dropped in water.
+  </p>
+  <p>
+    A forest fire in uniform terrain behaves almost identically. A fire ignites at a point source and spreads to its immediate neighbors (adjacent trees) first. Those neighbors then catch fire and spread to <em>their</em> adjacent trees in the next time step. This outward, layer-by-layer expansion is a perfect real-world analog of BFS queue expansion:
+  </p>
+  <ul>
+    <li><strong>Source node = initial ignition point</strong></li>
+    <li><strong>Queue = current fire frontier (burning cells)</strong></li>
+    <li><strong>Visited set = burned cells (already processed)</strong></li>
+    <li><strong>BFS level = one hour of fire spread</strong></li>
+    <li><strong>Adjacency = neighboring forest cells (4-directional or 8-directional)</strong></li>
+  </ul>
+
+  <h3>Illustrative Example — Fire Spreading on a 5×5 Grid</h3>
+  <p>Consider a 5×5 grid of trees (T) with fire starting at center cell (2,2). We trace BFS level by level:</p>
+
+  <div class="diagram">
+<span class="title-line">HOUR 0 — Ignition at (2,2)</span>
+
+  0   1   2   3   4
+0 [T] [T] [T] [T] [T]
+1 [T] [T] [T] [T] [T]
+2 [T] [T] [<span class="fire-cell">🔥</span>] [T] [T]   ← BFS Queue: {(2,2)}
+3 [T] [T] [T] [T] [T]
+4 [T] [T] [T] [T] [T]
+
+<span class="title-line">HOUR 1 — BFS Level 1: 4 Neighbors of (2,2) catch fire</span>
+
+  0   1   2   3   4
+0 [T] [T] [T] [T] [T]
+1 [T] [T] [<span class="fire-cell">🔥</span>] [T] [T]   ← (1,2)
+2 [T] [<span class="fire-cell">🔥</span>] [X] [<span class="fire-cell">🔥</span>] [T]   ← (2,1) burned; (2,3) burning
+3 [T] [T] [<span class="fire-cell">🔥</span>] [T] [T]   ← (3,2)
+4 [T] [T] [T] [T] [T]
+
+<span class="title-line">HOUR 2 — BFS Level 2: 8 new neighbors catch fire</span>
+
+  0   1   2   3   4
+0 [T] [T] [T] [T] [T]
+1 [T] [<span class="fire-cell">🔥</span>] [X] [<span class="fire-cell">🔥</span>] [T]   ← New frontier expands
+2 [<span class="fire-cell">🔥</span>] [X] [X] [X] [<span class="fire-cell">🔥</span>]
+3 [T] [<span class="fire-cell">🔥</span>] [X] [<span class="fire-cell">🔥</span>] [T]
+4 [T] [T] [T] [T] [T]
+
+Key: [T]=Tree, [<span class="fire-cell">🔥</span>]=Burning (frontier), [X]=Burned out, [<span class="water-cell">W</span>]=Water(barrier)
+  </div>
+
+  <div class="callout">
+    <strong>Key Insight:</strong> Each BFS "level" corresponds to one hour. At hour <em>h</em>, every cell reachable from the origin in exactly <em>h</em> BFS steps will be on fire. This makes BFS a natural clock for time-stepped fire simulation. Non-uniform terrain is handled by assigning spread probabilities to each edge, converting the pure BFS into a probabilistic BFS.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 3 -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <span class="section-num">03</span>
+    <h2>System Design</h2>
+  </div>
+
+  <h3>2D Matrix / Grid Representation</h3>
+  <p>
+    The terrain is modeled as an <strong>N × M matrix</strong> where each cell represents a fixed-area patch of land (e.g., 100 m × 100 m in real deployments). Each cell stores:
+  </p>
+  <ul>
+    <li>Cell state (integer code)</li>
+    <li>Environmental parameters (stored as parallel arrays or cell objects)</li>
+    <li>Burn timestamp (hour at which it ignited)</li>
+  </ul>
+
+  <h3>Cell State Definitions</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>State Code</th><th>Name</th><th>Symbol</th><th>Color</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>0</td><td>Unburned Forest</td><td>T</td><td>🟩 Green</td><td>Healthy tree/vegetation, susceptible to ignition</td></tr>
+        <tr><td>1</td><td>Burning</td><td>🔥</td><td>🟠 Orange</td><td>Currently on fire; will spread to neighbors next hour</td></tr>
+        <tr><td>2</td><td>Burned / Charred</td><td>X</td><td>⬛ Dark Gray</td><td>Completely burned; cannot re-ignite, acts as partial barrier</td></tr>
+        <tr><td>3</td><td>Water Body</td><td>W</td><td>🔵 Blue</td><td>Lake, river, stream; fire cannot cross — absolute barrier</td></tr>
+        <tr><td>4</td><td>Firebreak</td><td>B</td><td>🟫 Brown</td><td>Cleared land/road; fire cannot cross — engineered barrier</td></tr>
+        <tr><td>5</td><td>Open Ground</td><td>·</td><td>⬜ Light</td><td>Bare soil/rock; fire can cross but with very low probability</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#2E7D32"></div> Unburned Tree</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#E8530A"></div> Burning</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#37474F"></div> Burned Out</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#0277BD"></div> Water Body</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#795548"></div> Firebreak</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#616161"></div> Open Ground</div>
+  </div>
+
+  <h3>Environmental Factors and Their Effect on Spread Probability</h3>
+  <p>
+    In a uniform BFS, every neighbor has equal probability of catching fire. We extend this with a <strong>spread probability function P(src, dst)</strong> that computes the likelihood of fire jumping from cell <code>src</code> to cell <code>dst</code> in one time step:
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Factor</th><th>Effect on Spread</th><th>Formula Contribution</th><th>Range</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Wind Direction &amp; Velocity</td><td>Accelerates fire downwind; slows upwind</td><td>P × W_factor (1.0–2.5 downwind; 0.2–0.5 upwind)</td><td>0–120 km/h</td></tr>
+        <tr><td>Vegetation Density</td><td>Dense vegetation = higher fuel load = faster spread</td><td>P × VD (0.1 sparse → 1.0 dense)</td><td>0.0–1.0</td></tr>
+        <tr><td>Vegetation Moisture</td><td>Wet vegetation resists ignition</td><td>P × (1 − moisture) clamped to [0.05, 1.0]</td><td>0% dry → 100% saturated</td></tr>
+        <tr><td>Terrain Slope</td><td>Fire climbs uphill faster (preheated fuel)</td><td>P × e^(0.069 × slope°) uphill direction</td><td>0°–45°</td></tr>
+        <tr><td>Temperature</td><td>High ambient temperature dries fuel faster</td><td>P × (T / T_ref)^0.5 where T_ref=25°C</td><td>−5°C–50°C</td></tr>
+        <tr><td>Humidity</td><td>High humidity suppresses ignition</td><td>P × (1 − RH/100)^1.5 where RH is % relative humidity</td><td>0%–100%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>Combined Spread Probability Function</h4>
+  <pre data-lang="python"><code><span class="kw">def</span> <span class="fn">compute_spread_probability</span>(src_cell, dst_cell, env_params):
+    <span class="cm">"""Compute probability [0,1] that fire spreads from src to dst."""</span>
+    base_p = <span class="nu">1.0</span>   <span class="cm"># Start at maximum on uniform terrain</span>
+
+    <span class="cm"># Wind factor: dot product of wind vector with spread direction</span>
+    wind_factor = get_wind_factor(src_cell, dst_cell, env_params.wind)
+    base_p *= wind_factor
+
+    <span class="cm"># Vegetation density amplifier</span>
+    base_p *= dst_cell.vegetation_density
+
+    <span class="cm"># Moisture suppressor</span>
+    base_p *= (<span class="nu">1</span> - dst_cell.moisture)
+
+    <span class="cm"># Slope: fire climbs uphill easily (Rothermel model approximation)</span>
+    slope_rad = get_slope(src_cell, dst_cell)
+    base_p *= math.exp(<span class="nu">0.069</span> * slope_rad)
+
+    <span class="cm"># Temperature and humidity from weather data</span>
+    base_p *= (env_params.temperature / <span class="nu">25.0</span>) ** <span class="nu">0.5</span>
+    base_p *= (<span class="nu">1</span> - env_params.humidity / <span class="nu">100</span>) ** <span class="nu">1.5</span>
+
+    <span class="kw">return</span> min(max(base_p, <span class="nu">0.0</span>), <span class="nu">1.0</span>)  <span class="cm"># Clamp to [0, 1]</span>
+</code></pre>
+
+  <h3>Grid Architecture Overview</h3>
+  <div class="diagram">
+<span class="title-line">FOREST TERRAIN GRID (8×10) — SYSTEM DESIGN EXAMPLE</span>
+
+     Col→  0    1    2    3    4    5    6    7    8    9
+Row↓
+  0      [ T ] [ T ] [ T ] [ T ] [<span class="water-cell"> W </span>] [<span class="water-cell"> W </span>] [ T ] [ T ] [ T ] [ T ]
+  1      [ T ] [ T ] [ T ] [ T ] [<span class="water-cell"> W </span>] [<span class="water-cell"> W </span>] [ T ] [ T ] [ T ] [ T ]
+  2      [ T ] [ T ] [<span class="fire-cell"> 🔥</span>] [ T ] [<span class="water-cell"> W </span>] [<span class="water-cell"> W </span>] [ T ] [ T ] [ T ] [ T ]   ← Ignition
+  3      [ T ] [ T ] [ T ] [ T ] [ B ] [ B ] [ B ] [ T ] [ T ] [ T ]   ← Firebreak
+  4      [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ]
+  5      [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ]
+  6      [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ]
+  7      [ T ] [ · ] [ · ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ] [ T ]   ← Open ground
+
+Legend: [T]=Tree [<span class="fire-cell">🔥</span>]=Fire [<span class="water-cell">W</span>]=Water [B]=Firebreak [·]=Open Ground
+
+Wind: →  (East, 40 km/h)   Temperature: 38°C   Humidity: 15%
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 4 -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <span class="section-num">04</span>
+    <h2>Algorithm Design</h2>
+  </div>
+
+  <h3>BFS-Based Fire Simulation Algorithm</h3>
+  <p>
+    Our simulation uses a <strong>multi-source BFS</strong> because a real fire may have multiple ignition points (lightning strikes, human activity, embers carried by wind). The algorithm processes the entire fire frontier simultaneously at each hour, which maps cleanly to the standard BFS queue structure.
+  </p>
+
+  <h3>Queue Initialization</h3>
+  <p>
+    Before the simulation begins:
+  </p>
+  <ol>
+    <li>Scan the entire N×M grid for all initially burning cells (state = BURNING).</li>
+    <li>Add each burning cell to a <code>deque</code> with its coordinates (row, col) and <code>hour=0</code>.</li>
+    <li>Mark all burning cells in a <code>visited</code> set to prevent re-processing.</li>
+    <li>Store hourly snapshots in a <code>timeline</code> list for reporting.</li>
+  </ol>
+
+  <h3>Neighbor Processing Logic</h3>
+  <p>
+    For each cell dequeued, we examine its <strong>4 cardinal neighbors</strong> (N, S, E, W) — or optionally <strong>8 neighbors</strong> (including diagonals for oblique wind spread). Each neighbor is processed as follows:
+  </p>
+  <ol>
+    <li>Skip if already visited, burned, water, or firebreak.</li>
+    <li>Compute spread probability <code>P = compute_spread_probability(src, dst, env)</code>.</li>
+    <li>Sample a uniform random number <code>r ~ Uniform(0,1)</code>.</li>
+    <li>If <code>r &lt; P</code>: mark the neighbor as BURNING, add to queue with <code>hour+1</code>.</li>
+    <li>After processing all neighbors of a cell, mark it as BURNED (charred).</li>
+  </ol>
+
+  <h3>Hourly Level Separation</h3>
+  <p>
+    Standard BFS uses a single queue and cannot natively separate "levels." We implement hour-level separation using one of two techniques:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Technique</th><th>Implementation</th><th>Advantage</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Snapshot Separator</td>
+          <td>Store <code>hour</code> timestamp with each queued element; when hour changes, save snapshot</td>
+          <td>Simple, single deque</td>
+        </tr>
+        <tr>
+          <td>Double Queue</td>
+          <td>Use <code>current_level</code> and <code>next_level</code> lists; swap after each hour</td>
+          <td>Clean level separation, easy snapshot</td>
+        </tr>
+        <tr>
+          <td>NULL Sentinel</td>
+          <td>Insert <code>None</code> marker into queue after each hour's last cell</td>
+          <td>Classic BFS level trick</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Our implementation uses the <strong>timestamp approach</strong> for maximum clarity.</p>
+
+  <h3>Step-by-Step Execution Logic</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Step</th><th>Action</th><th>Data Structure Operation</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Load forest grid from input</td><td>Build N×M 2D array</td></tr>
+        <tr><td>2</td><td>Find all initial fire cells</td><td>Linear scan O(N×M)</td></tr>
+        <tr><td>3</td><td>Initialize queue and visited set</td><td>deque.append(), set.add()</td></tr>
+        <tr><td>4</td><td>Load environmental parameters</td><td>Dictionary / config object</td></tr>
+        <tr><td>5</td><td>Dequeue front cell (row, col, hour)</td><td>deque.popleft() — O(1)</td></tr>
+        <tr><td>6</td><td>If hour changed, save hourly snapshot</td><td>List append O(1)</td></tr>
+        <tr><td>7</td><td>For each valid neighbor: compute P, sample, maybe enqueue</td><td>deque.append() — O(1)</td></tr>
+        <tr><td>8</td><td>Mark current cell as BURNED</td><td>grid[r][c] = BURNED</td></tr>
+        <tr><td>9</td><td>Repeat steps 5–8 until queue is empty</td><td>BFS termination</td></tr>
+        <tr><td>10</td><td>Generate final area analysis report</td><td>Count states, build metrics</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 5 -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <span class="section-num">05</span>
+    <h2>Pseudocode</h2>
+  </div>
+
+  <h3>Main BFS Fire Simulation Pseudocode</h3>
+  <div class="pseudo"><span class="p-cm"># ══════════════════════════════════════════════════════════
+# FOREST FIRE SPREAD SIMULATION — BFS PSEUDOCODE
+# Each BFS level = 1 hour of fire spread
+# ══════════════════════════════════════════════════════════</span>
+
+<span class="p-kw">CONSTANTS:</span>
+    TREE     ← 0    <span class="p-cm"># Unburned forest cell</span>
+    BURNING  ← 1    <span class="p-cm"># Currently on fire</span>
+    BURNED   ← 2    <span class="p-cm"># Charred / extinguished</span>
+    WATER    ← 3    <span class="p-cm"># Water body — absolute barrier</span>
+    FIREBREAK← 4    <span class="p-cm"># Engineered barrier</span>
+    DIRS     ← [(−1,0),(1,0),(0,−1),(0,1)]   <span class="p-cm"># N, S, W, E</span>
+
+<span class="p-fn">FUNCTION</span> simulate_fire(grid[N][M], env_params, max_hours):
+
+    <span class="p-cm">── INITIALIZATION ──────────────────────────────────────</span>
+    queue    ← empty deque
+    visited  ← empty set
+    timeline ← empty list            <span class="p-cm"># hourly snapshots</span>
+    current_hour ← 0
+    burned_count ← 0
+
+    <span class="p-cm">── MULTI-SOURCE BFS SEED ────────────────────────────────</span>
+    <span class="p-kw">FOR</span> each cell (r, c) in grid:
+        <span class="p-kw">IF</span> grid[r][c] == BURNING:
+            queue.append( (r, c, hour=0) )
+            visited.add( (r, c) )
+
+    <span class="p-kw">IF</span> queue is empty:
+        <span class="p-kw">RETURN</span> "No active fire found"
+
+    save_snapshot(timeline, grid, hour=0)       <span class="p-cm"># Hour-0 state</span>
+
+    <span class="p-cm">── MAIN BFS LOOP ────────────────────────────────────────</span>
+    <span class="p-kw">WHILE</span> queue is not empty <span class="p-kw">AND</span> current_hour ≤ max_hours:
+
+        (row, col, hour) ← queue.popleft()
+
+        <span class="p-cm">── Hour boundary: save snapshot when hour changes ──</span>
+        <span class="p-kw">IF</span> hour > current_hour:
+            print_hourly_report(timeline, current_hour)
+            current_hour ← hour
+            <span class="p-kw">IF</span> current_hour > max_hours: <span class="p-kw">BREAK</span>
+
+        <span class="p-cm">── Mark current burning cell as burned ─────────────</span>
+        grid[row][col] ← BURNED
+        burned_count ← burned_count + 1
+
+        <span class="p-cm">── Process all neighbors ───────────────────────────</span>
+        <span class="p-kw">FOR</span> each (dr, dc) in DIRS:
+            nr ← row + dr
+            nc ← col + dc
+
+            <span class="p-cm"># Boundary check</span>
+            <span class="p-kw">IF</span> (nr, nc) out of grid bounds: <span class="p-kw">CONTINUE</span>
+
+            <span class="p-cm"># Skip visited, barriers, already processed</span>
+            <span class="p-kw">IF</span> (nr, nc) in visited: <span class="p-kw">CONTINUE</span>
+            <span class="p-kw">IF</span> grid[nr][nc] in {WATER, FIREBREAK, BURNED}: <span class="p-kw">CONTINUE</span>
+            <span class="p-kw">IF</span> grid[nr][nc] ≠ TREE: <span class="p-kw">CONTINUE</span>
+
+            <span class="p-cm">── Environmental spread probability check ──────────</span>
+            P ← compute_spread_probability(
+                    src=(row, col),
+                    dst=(nr, nc),
+                    wind=env_params.wind,
+                    veg_density=grid_meta[nr][nc].density,
+                    moisture=grid_meta[nr][nc].moisture,
+                    slope=terrain[nr][nc].slope,
+                    temperature=env_params.temp,
+                    humidity=env_params.humidity
+                )
+
+            r_sample ← random.uniform(0, 1)
+
+            <span class="p-kw">IF</span> r_sample < P:
+                grid[nr][nc] ← BURNING
+                visited.add( (nr, nc) )
+                queue.append( (nr, nc, hour + 1) )   <span class="p-cm"># Next hour</span>
+
+    <span class="p-cm">── FINAL REPORT ─────────────────────────────────────────</span>
+    save_snapshot(timeline, grid, current_hour)
+    report ← generate_area_report(grid, timeline, burned_count)
+    <span class="p-kw">RETURN</span> report
+
+<span class="p-cm"># ──────────────────────────────────────────────────────────</span>
+<span class="p-fn">FUNCTION</span> compute_spread_probability(src, dst, wind, veg_density,
+                                       moisture, slope, temperature, humidity):
+    P ← 1.0
+    P ← P × wind_factor(src, dst, wind)       <span class="p-cm"># Wind amplifier/damper</span>
+    P ← P × veg_density                       <span class="p-cm"># Fuel load</span>
+    P ← P × (1 − moisture)                    <span class="p-cm"># Moisture suppression</span>
+    P ← P × exp(0.069 × slope)                <span class="p-cm"># Uphill advantage</span>
+    P ← P × sqrt(temperature / 25.0)          <span class="p-cm"># Heat effect</span>
+    P ← P × (1 − humidity/100)^1.5            <span class="p-cm"># Humidity suppression</span>
+    <span class="p-kw">RETURN</span> clamp(P, 0.0, 1.0)
+
+<span class="p-fn">FUNCTION</span> wind_factor(src, dst, wind_vector):
+    spread_dir ← normalize(dst − src)
+    dot ← dot_product(spread_dir, normalize(wind_vector))
+    speed_scale ← min(wind_vector.magnitude / 60.0, 2.0)
+    <span class="p-kw">RETURN</span> 1.0 + dot × speed_scale            <span class="p-cm"># [0.2 ... 3.0]</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 6 -->
+<div class="section" id="s6">
+  <div class="section-header">
+    <span class="section-num">06</span>
+    <h2>Python Implementation</h2>
+  </div>
+  <p>
+    The following is a complete, fully working Python 3 implementation of the forest fire BFS simulator. It uses <code>collections.deque</code> for the BFS queue, a 2D list for the grid, and displays hourly progression clearly in the terminal.
+  </p>
+
+<pre data-lang="python"><code><span class="cm">#!/usr/bin/env python3
+"""
+════════════════════════════════════════════════════════════════
+ FOREST FIRE SPREAD SIMULATION — BFS Implementation
+ Course  : Data Structures & Algorithms
+ Domain  : Environmental Safety / Disaster Management
+ Language: Python 3.x
+ Author  : [Student Name]
+════════════════════════════════════════════════════════════════
+"""</span>
+
+<span class="kw">import</span> math
+<span class="kw">import</span> random
+<span class="kw">import</span> copy
+<span class="kw">from</span> collections <span class="kw">import</span> deque
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field
+<span class="kw">from</span> typing <span class="kw">import</span> List, Tuple, Dict
+
+<span class="cm"># ── Cell State Constants ─────────────────────────────────────────────────────</span>
+TREE      = <span class="nu">0</span>   <span class="cm"># Unburned forest</span>
+BURNING   = <span class="nu">1</span>   <span class="cm"># Currently on fire</span>
+BURNED    = <span class="nu">2</span>   <span class="cm"># Charred / burned out</span>
+WATER     = <span class="nu">3</span>   <span class="cm"># Water body (barrier)</span>
+FIREBREAK = <span class="nu">4</span>   <span class="cm"># Engineered firebreak (barrier)</span>
+OPEN      = <span class="nu">5</span>   <span class="cm"># Open ground / bare soil</span>
+
+<span class="cm"># ── Display symbols for terminal output ──────────────────────────────────────</span>
+SYMBOLS = {
+    TREE     : <span class="st">'T'</span>,
+    BURNING  : <span class="st">'🔥'</span>,
+    BURNED   : <span class="st">'X'</span>,
+    WATER    : <span class="st">'W'</span>,
+    FIREBREAK: <span class="st">'B'</span>,
+    OPEN     : <span class="st">'·'</span>,
+}
+
+<span class="cm"># ── Directions: N, S, W, E ───────────────────────────────────────────────────</span>
+DIRECTIONS = [(-<span class="nu">1</span>, <span class="nu">0</span>), (<span class="nu">1</span>, <span class="nu">0</span>), (<span class="nu">0</span>, -<span class="nu">1</span>), (<span class="nu">0</span>, <span class="nu">1</span>)]
+DIR_NAMES  = [<span class="st">'N'</span>, <span class="st">'S'</span>, <span class="st">'W'</span>, <span class="st">'E'</span>]
+
+
+<span class="cm"># ── Data Classes ─────────────────────────────────────────────────────────────</span>
+@dataclass
+<span class="kw">class</span> <span class="cl">WindParams</span>:
+    speed_kmh: <span class="cl">float</span> = <span class="nu">30.0</span>    <span class="cm"># Wind speed in km/h</span>
+    direction : <span class="cl">str</span>   = <span class="st">'E'</span>    <span class="cm"># Cardinal: N/S/E/W</span>
+    <span class="cm"># Direction vector (dr, dc) mapping</span>
+    _dir_map: <span class="cl">Dict</span> = field(default_factory=<span class="kw">lambda</span>: {
+        <span class="st">'N'</span>: (-<span class="nu">1</span>,  <span class="nu">0</span>), <span class="st">'S'</span>: ( <span class="nu">1</span>,  <span class="nu">0</span>),
+        <span class="st">'E'</span>: ( <span class="nu">0</span>,  <span class="nu">1</span>), <span class="st">'W'</span>: ( <span class="nu">0</span>, -<span class="nu">1</span>),
+    })
+    <span class="kw">def</span> <span class="fn">as_vector</span>(self) -> <span class="cl">Tuple</span>[<span class="cl">float</span>, <span class="cl">float</span>]:
+        v = self._dir_map[self.direction]
+        scale = self.speed_kmh / <span class="nu">60.0</span>
+        <span class="kw">return</span> (v[<span class="nu">0</span>] * scale, v[<span class="nu">1</span>] * scale)
+
+@dataclass
+<span class="kw">class</span> <span class="cl">EnvironmentParams</span>:
+    wind        : <span class="cl">WindParams</span> = field(default_factory=<span class="cl">WindParams</span>)
+    temperature : <span class="cl">float</span> = <span class="nu">35.0</span>   <span class="cm"># Celsius</span>
+    humidity    : <span class="cl">float</span> = <span class="nu">20.0</span>   <span class="cm"># Relative humidity %</span>
+
+@dataclass
+<span class="kw">class</span> <span class="cl">CellMeta</span>:
+    vegetation_density: <span class="cl">float</span> = <span class="nu">0.8</span>  <span class="cm"># 0.0=bare to 1.0=dense forest</span>
+    moisture          : <span class="cl">float</span> = <span class="nu">0.2</span>  <span class="cm"># 0.0=dry to 1.0=saturated</span>
+    slope_deg         : <span class="cl">float</span> = <span class="nu">0.0</span>  <span class="cm"># Terrain slope degrees</span>
+    burn_hour         : <span class="cl">int</span>   = -<span class="nu">1</span>   <span class="cm"># Hour at which cell caught fire</span>
+
+
+<span class="cm"># ── Spread Probability Calculator ────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">compute_spread_probability</span>(
+        src_r, src_c, dst_r, dst_c,
+        meta: <span class="cl">CellMeta</span>,
+        env: <span class="cl">EnvironmentParams</span>) -> <span class="cl">float</span>:
+    <span class="cm">"""
+    Returns the probability [0.0, 1.0] that fire spreads from
+    cell (src_r,src_c) to cell (dst_r,dst_c) in one time step.
+    """</span>
+    p = <span class="nu">1.0</span>
+
+    <span class="cm"># ── Wind factor ──────────────────────────────────────────────</span>
+    wv = env.wind.as_vector()                  <span class="cm"># Wind direction vector</span>
+    spread_dr = dst_r - src_r
+    spread_dc = dst_c - src_c
+    length = math.sqrt(spread_dr**<span class="nu">2</span> + spread_dc**<span class="nu">2</span>) <span class="kw">or</span> <span class="nu">1.0</span>
+    dot = (spread_dr / length) * wv[<span class="nu">0</span>] + (spread_dc / length) * wv[<span class="nu">1</span>]
+    wind_factor = <span class="nu">1.0</span> + dot               <span class="cm"># Ranges ~0.2 to 3.0</span>
+    p *= max(<span class="nu">0.15</span>, wind_factor)
+
+    <span class="cm"># ── Vegetation density (fuel load) ───────────────────────────</span>
+    p *= meta.vegetation_density
+
+    <span class="cm"># ── Moisture suppression ─────────────────────────────────────</span>
+    p *= max(<span class="nu">0.05</span>, <span class="nu">1.0</span> - meta.moisture)
+
+    <span class="cm"># ── Terrain slope (uphill fires spread faster) ───────────────</span>
+    slope_boost = math.exp(<span class="nu">0.069</span> * meta.slope_deg)
+    p *= slope_boost
+
+    <span class="cm"># ── Ambient temperature boost ────────────────────────────────</span>
+    p *= math.sqrt(max(<span class="nu">0.1</span>, env.temperature / <span class="nu">25.0</span>))
+
+    <span class="cm"># ── Humidity suppression ─────────────────────────────────────</span>
+    p *= ((<span class="nu">1.0</span> - env.humidity / <span class="nu">100.0</span>) ** <span class="nu">1.5</span>)
+
+    <span class="kw">return</span> min(max(p, <span class="nu">0.0</span>), <span class="nu">1.0</span>)
+
+
+<span class="cm"># ── Grid Display Utility ──────────────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">display_grid</span>(grid: <span class="cl">List</span>[<span class="cl">List</span>[<span class="cl">int</span>]], hour: <span class="cl">int</span>,
+                  stats: <span class="cl">Dict</span> = <span class="kw">None</span>):
+    rows, cols = len(grid), len(grid[<span class="nu">0</span>])
+    border = <span class="st">'─'</span> * (cols * <span class="nu">3</span> + <span class="nu">2</span>)
+    print(<span class="st">f"\n{'═'*50}"</span>)
+    print(<span class="st">f"  📍 HOUR {hour:02d} — Fire Spread State"</span>)
+    print(border)
+    <span class="kw">for</span> r <span class="kw">in</span> range(rows):
+        row_str = <span class="st">' '</span>.join(<span class="st">f"{SYMBOLS[grid[r][c]]:&lt;2}"</span> <span class="kw">for</span> c <span class="kw">in</span> range(cols))
+        print(<span class="st">f"  {row_str}"</span>)
+    print(border)
+    <span class="kw">if</span> stats:
+        print(<span class="st">f"  Burning: {stats.get('burning',0):3d} cells | "</span>
+              <span class="st">f"Burned: {stats.get('burned',0):3d} cells | "</span>
+              <span class="st">f"Safe: {stats.get('safe',0):3d} cells"</span>)
+
+
+<span class="cm"># ── Statistics Calculator ─────────────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">get_stats</span>(grid):
+    stats = {<span class="st">'tree'</span>: <span class="nu">0</span>, <span class="st">'burning'</span>: <span class="nu">0</span>, <span class="st">'burned'</span>: <span class="nu">0</span>, <span class="st">'safe'</span>: <span class="nu">0</span>}
+    <span class="kw">for</span> row <span class="kw">in</span> grid:
+        <span class="kw">for</span> cell <span class="kw">in</span> row:
+            <span class="kw">if</span>   cell == TREE:      stats[<span class="st">'tree'</span>]    += <span class="nu">1</span>
+            <span class="kw">elif</span> cell == BURNING:   stats[<span class="st">'burning'</span>]  += <span class="nu">1</span>
+            <span class="kw">elif</span> cell == BURNED:    stats[<span class="st">'burned'</span>]   += <span class="nu">1</span>
+            <span class="kw">elif</span> cell <span class="kw">in</span> {WATER, FIREBREAK}: stats[<span class="st">'safe'</span>] += <span class="nu">1</span>
+    <span class="kw">return</span> stats
+
+
+<span class="cm"># ── MAIN BFS SIMULATION ───────────────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">simulate_forest_fire</span>(
+        initial_grid   : <span class="cl">List</span>[<span class="cl">List</span>[<span class="cl">int</span>]],
+        cell_metadata  : <span class="cl">List</span>[<span class="cl">List</span>[<span class="cl">CellMeta</span>]],
+        env_params     : <span class="cl">EnvironmentParams</span>,
+        max_hours      : <span class="cl">int</span> = <span class="nu">10</span>,
+        use_probability: <span class="cl">bool</span> = <span class="kw">True</span>,
+        random_seed    : <span class="cl">int</span> = <span class="nu">42</span>
+) -> <span class="cl">Dict</span>:
+    <span class="cm">"""
+    Multi-source BFS forest fire simulation.
+    Returns a dictionary containing the final grid and report metrics.
+    """</span>
+    random.seed(random_seed)
+    rows  = len(initial_grid)
+    cols  = len(initial_grid[<span class="nu">0</span>])
+    grid  = copy.deepcopy(initial_grid)      <span class="cm"># Work on a copy</span>
+    meta  = cell_metadata
+
+    <span class="cm"># ── Initialize BFS structures ─────────────────────────────────────────</span>
+    queue    = deque()    <span class="cm"># Each element: (row, col, hour)</span>
+    visited  = set()
+    timeline = []         <span class="cm"># List of (hour, grid_snapshot, stats)</span>
+    hourly_burned = {}    <span class="cm"># hour → number of new cells burned</span>
+
+    <span class="cm"># ── Seed queue with all initially burning cells ───────────────────────</span>
+    seed_count = <span class="nu">0</span>
+    <span class="kw">for</span> r <span class="kw">in</span> range(rows):
+        <span class="kw">for</span> c <span class="kw">in</span> range(cols):
+            <span class="kw">if</span> grid[r][c] == BURNING:
+                queue.append((r, c, <span class="nu">0</span>))
+                visited.add((r, c))
+                meta[r][c].burn_hour = <span class="nu">0</span>
+                seed_count += <span class="nu">1</span>
+
+    <span class="kw">if</span> seed_count == <span class="nu">0</span>:
+        <span class="kw">return</span> {<span class="st">'error'</span>: <span class="st">'No initial fire cells found in grid.'</span>}
+
+    print(<span class="st">f"\n🌲 FOREST FIRE BFS SIMULATION STARTED"</span>)
+    print(<span class="st">f"   Grid: {rows}×{cols} | Seeds: {seed_count} | Max hours: {max_hours}"</span>)
+    print(<span class="st">f"   Wind: {env_params.wind.direction} @ {env_params.wind.speed_kmh} km/h | "</span>
+          <span class="st">f"Temp: {env_params.temperature}°C | "</span>
+          <span class="st">f"Humidity: {env_params.humidity}%"</span>)
+
+    <span class="cm"># Save initial state</span>
+    initial_stats = get_stats(grid)
+    timeline.append((<span class="nu">0</span>, copy.deepcopy(grid), initial_stats))
+    display_grid(grid, <span class="nu">0</span>, initial_stats)
+
+    current_hour = <span class="nu">0</span>
+    new_burns_this_hour = <span class="nu">0</span>
+
+    <span class="cm"># ── MAIN BFS LOOP ─────────────────────────────────────────────────────</span>
+    <span class="kw">while</span> queue:
+        r, c, hour = queue.popleft()
+
+        <span class="cm"># ── Hour boundary detection ───────────────────────────────────</span>
+        <span class="kw">if</span> hour > current_hour:
+            stats = get_stats(grid)
+            hourly_burned[current_hour] = new_burns_this_hour
+            timeline.append((current_hour, copy.deepcopy(grid), stats))
+            display_grid(grid, current_hour, stats)
+            new_burns_this_hour = <span class="nu">0</span>
+            current_hour = hour
+            <span class="kw">if</span> current_hour > max_hours:
+                <span class="kw">break</span>
+
+        <span class="cm"># ── Transition current cell: BURNING → BURNED ─────────────────</span>
+        <span class="kw">if</span> grid[r][c] == BURNING:
+            grid[r][c] = BURNED
+
+        <span class="cm"># ── Process all 4 neighbors ───────────────────────────────────</span>
+        <span class="kw">for</span> dr, dc <span class="kw">in</span> DIRECTIONS:
+            nr, nc = r + dr, c + dc
+
+            <span class="cm"># Boundary check</span>
+            <span class="kw">if</span> <span class="kw">not</span> (<span class="nu">0</span> <= nr < rows <span class="kw">and</span> <span class="nu">0</span> <= nc < cols):
+                <span class="kw">continue</span>
+            <span class="cm"># Already processed or barrier</span>
+            <span class="kw">if</span> (nr, nc) <span class="kw">in</span> visited:
+                <span class="kw">continue</span>
+            <span class="kw">if</span> grid[nr][nc] <span class="kw">not in</span> {TREE, OPEN}:
+                <span class="kw">continue</span>
+
+            <span class="cm"># ── Compute spread probability ────────────────────────────</span>
+            <span class="kw">if</span> use_probability:
+                p = compute_spread_probability(
+                    r, c, nr, nc, meta[nr][nc], env_params)
+                spreads = (random.random() < p)
+            <span class="kw">else</span>:
+                spreads = (grid[nr][nc] == TREE)  <span class="cm"># Deterministic</span>
+
+            <span class="kw">if</span> spreads:
+                grid[nr][nc] = BURNING
+                meta[nr][nc].burn_hour = hour + <span class="nu">1</span>
+                visited.add((nr, nc))
+                queue.append((nr, nc, hour + <span class="nu">1</span>))
+                new_burns_this_hour += <span class="nu">1</span>
+
+    <span class="cm"># ── Final state ───────────────────────────────────────────────────────</span>
+    <span class="cm"># Finalize any remaining burning cells</span>
+    <span class="kw">for</span> r <span class="kw">in</span> range(rows):
+        <span class="kw">for</span> c <span class="kw">in</span> range(cols):
+            <span class="kw">if</span> grid[r][c] == BURNING:
+                grid[r][c] = BURNED
+
+    final_stats = get_stats(grid)
+    display_grid(grid, current_hour, final_stats)
+
+    <span class="kw">return</span> {
+        <span class="st">'final_grid'</span>   : grid,
+        <span class="st">'timeline'</span>     : timeline,
+        <span class="st">'final_stats'</span>  : final_stats,
+        <span class="st">'hourly_burned'</span>: hourly_burned,
+        <span class="st">'hours_elapsed'</span>: current_hour,
+        <span class="st">'cell_metadata'</span>: meta,
+    }
+
+
+<span class="cm"># ── Area Analysis Report Generator ───────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">generate_report</span>(result: <span class="cl">Dict</span>, grid_size_m: <span class="cl">float</span> = <span class="nu">100.0</span>):
+    <span class="cm">"""Print a structured area analysis report."""</span>
+    stats = result[<span class="st">'final_stats'</span>]
+    total_cells = sum(stats.values())
+    cell_area_ha = (grid_size_m * grid_size_m) / <span class="nu">10000</span>   <span class="cm"># m² → hectares</span>
+    burned_ha    = stats[<span class="st">'burned'</span>] * cell_area_ha
+
+    print(<span class="st">"\n"</span> + <span class="st">"═"</span> * <span class="nu">55</span>)
+    print(<span class="st">"  🌲 FOREST FIRE AREA ANALYSIS REPORT"</span>)
+    print(<span class="st">"═"</span> * <span class="nu">55</span>)
+    print(<span class="st">f"  Total Cells Simulated  : {total_cells}"</span>)
+    print(<span class="st">f"  Duration               : {result['hours_elapsed']} hours"</span>)
+    print(<span class="st">f"  Total Burned Area      : {burned_ha:.2f} hectares"</span>)
+    print(<span class="st">f"  Cells Burned           : {stats['burned']}"</span>)
+    print(<span class="st">f"  Cells Remaining (safe) : {stats['tree']}"</span>)
+    pct = (stats[<span class="st">'burned'</span>] / max(<span class="nu">1</span>, total_cells)) * <span class="nu">100</span>
+    print(<span class="st">f"  Burn Coverage          : {pct:.1f}%"</span>)
+    print(<span class="st">"─"</span> * <span class="nu">55</span>)
+    print(<span class="st">"  HOURLY PROGRESSION:"</span>)
+    <span class="kw">for</span> h, count <span class="kw">in</span> result[<span class="st">'hourly_burned'</span>].items():
+        bar = <span class="st">'█'</span> * min(count, <span class="nu">40</span>)
+        print(<span class="st">f"  Hour {h:02d}: {bar} ({count} new cells)"</span>)
+    print(<span class="st">"═"</span> * <span class="nu">55</span>)
+
+
+<span class="cm"># ══════════════════════════════════════════════════════════════
+# MAIN — Run simulation with example forest map
+# ══════════════════════════════════════════════════════════════</span>
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+
+    <span class="cm"># ── Define a 10×12 forest grid ────────────────────────────────────────</span>
+    <span class="cm">#  T=Tree(0), 🔥=Burning(1), X=Burned(2), W=Water(3), B=Firebreak(4)</span>
+    T, F, X, W, B = TREE, BURNING, BURNED, WATER, FIREBREAK
+
+    initial_grid = [
+        [T, T, T, T, T, W, W, T, T, T, T, T],
+        [T, T, T, T, T, W, W, T, T, T, T, T],
+        [T, T, F, T, T, W, W, T, T, T, T, T],   <span class="cm"># Fire at (2,2)</span>
+        [T, T, T, T, T, W, W, T, T, T, T, T],
+        [T, T, T, T, B, B, B, B, T, T, T, T],   <span class="cm"># Firebreak row 4</span>
+        [T, T, T, T, T, T, T, T, T, T, T, T],
+        [T, T, T, T, T, T, T, T, T, T, T, T],
+        [T, T, T, T, T, T, T, T, T, T, T, T],
+        [T, T, T, T, T, T, T, T, T, T, T, T],
+        [T, T, T, T, T, T, T, T, T, T, T, T],
+    ]
+
+    <span class="cm"># ── Cell metadata (vegetation density, moisture, slope) ──────────────</span>
+    rows, cols = len(initial_grid), len(initial_grid[<span class="nu">0</span>])
+    cell_metadata = [
+        [<span class="cl">CellMeta</span>(
+            vegetation_density = random.uniform(<span class="nu">0.6</span>, <span class="nu">1.0</span>),
+            moisture           = random.uniform(<span class="nu">0.05</span>, <span class="nu">0.3</span>),
+            slope_deg          = random.uniform(<span class="nu">0</span>, <span class="nu">15</span>)
+        ) <span class="kw">for</span> _ <span class="kw">in</span> range(cols)]
+        <span class="kw">for</span> _ <span class="kw">in</span> range(rows)
+    ]
+
+    <span class="cm"># ── Set environment parameters ────────────────────────────────────────</span>
+    env = <span class="cl">EnvironmentParams</span>(
+        wind        = <span class="cl">WindParams</span>(speed_kmh=<span class="nu">45.0</span>, direction=<span class="st">'E'</span>),
+        temperature = <span class="nu">38.0</span>,    <span class="cm"># Hot, dry day</span>
+        humidity    = <span class="nu">18.0</span>,
+    )
+
+    <span class="cm"># ── Run simulation ────────────────────────────────────────────────────</span>
+    result = simulate_forest_fire(
+        initial_grid    = initial_grid,
+        cell_metadata   = cell_metadata,
+        env_params      = env,
+        max_hours       = <span class="nu">8</span>,
+        use_probability = <span class="kw">True</span>,
+        random_seed     = <span class="nu">42</span>,
+    )
+
+    <span class="cm"># ── Generate area report ──────────────────────────────────────────────</span>
+    generate_report(result, grid_size_m=<span class="nu">100.0</span>)
+</code></pre>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 7 -->
+<div class="section" id="s7">
+  <div class="section-header">
+    <span class="section-num">07</span>
+    <h2>Time and Space Complexity Analysis</h2>
+  </div>
+
+  <h3>BFS Core Complexity</h3>
+  <p>
+    BFS has a well-established complexity of <strong>O(V + E)</strong> where V is the number of vertices (cells) and E is the number of edges (adjacency connections between cells). In our N×M grid:
+  </p>
+  <ul>
+    <li><strong>Vertices V = N × M</strong> — every cell is a node</li>
+    <li><strong>Edges E = 2 × N × M − N − M ≈ 2NM</strong> — each interior cell has 4 edges; with a 4-connected grid this gives approximately 2NM edges total</li>
+    <li>Therefore: <strong>BFS Total = O(V + E) = O(NM + 2NM) = O(NM)</strong></li>
+  </ul>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Scenario</th><th>Condition</th><th>Time Complexity</th><th>Space Complexity</th><th>Example</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Best Case</td>
+          <td>Fire immediately blocked by water/firebreak on all sides; only 1 cell burns</td>
+          <td>O(1) — constant 4 neighbor checks</td>
+          <td>O(1) queue</td>
+          <td>Fire at lake edge</td>
+        </tr>
+        <tr>
+          <td>Average Case</td>
+          <td>Fire spreads probabilistically; burns ~50% of grid before hitting barriers</td>
+          <td>O(k × N × M / 2) where k = spread factor</td>
+          <td>O(N × M / 2)</td>
+          <td>Typical forest with mixed terrain</td>
+        </tr>
+        <tr>
+          <td>Worst Case</td>
+          <td>Uniform forest, no barriers, fire burns entire grid (100% probability)</td>
+          <td>O(N × M)</td>
+          <td>O(N × M)</td>
+          <td>Homogeneous dry forest</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Complexity Breakdown by Component</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Component</th><th>Time</th><th>Space</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Grid initialization</td><td>O(N×M)</td><td>O(N×M)</td><td>Load and copy grid</td></tr>
+        <tr><td>BFS queue operations</td><td>O(N×M) — each cell enqueued/dequeued once</td><td>O(N×M) — worst case full queue</td><td>deque O(1) per operation</td></tr>
+        <tr><td>Visited set lookups</td><td>O(1) average per lookup</td><td>O(N×M)</td><td>Hash set</td></tr>
+        <tr><td>Spread probability calc</td><td>O(1) per neighbor pair</td><td>O(1)</td><td>Math ops, no recursion</td></tr>
+        <tr><td>Hourly snapshots</td><td>O(N×M) per snapshot</td><td>O(H × N × M)</td><td>H = number of hours</td></tr>
+        <tr><td>Report generation</td><td>O(N×M)</td><td>O(1)</td><td>Single pass counting</td></tr>
+        <tr><td><strong>Total</strong></td><td><strong>O(H × N × M)</strong></td><td><strong>O(H × N × M)</strong></td><td>H = simulation hours</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Complexity Badges</h3>
+  <span class="complexity">⏱ Time: O(H × N × M)</span>
+  <span class="complexity">💾 Space: O(H × N × M)</span>
+  <span class="complexity">Queue: O(N × M) worst case</span>
+  <span class="complexity">Per-cell work: O(1)</span>
+
+  <div class="callout">
+    <strong>Important Note:</strong> The per-cell work is O(1) because each cell is enqueued and dequeued exactly <em>once</em> (the visited set ensures this), and has a fixed number of neighbors (max 4). The overhead per cell is the probability computation which involves only arithmetic — O(1). Snapshots are the dominant memory cost at O(H × N × M).
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 8 -->
+<div class="section" id="s8">
+  <div class="section-header">
+    <span class="section-num">08</span>
+    <h2>Scalability Discussion</h2>
+  </div>
+
+  <h3>Challenges at National Park Scale</h3>
+  <p>
+    The Jim Corbett National Park in India spans ~520 km². If we model this at 10m resolution, we get <strong>520 km² ÷ 100 m² = 52 million cells</strong>. At 1m resolution (drone-quality): <strong>520 billion cells</strong>. At these scales, a naive BFS implementation hits fundamental limits:
+  </p>
+  <ul>
+    <li><strong>Memory:</strong> 520M cells × 8 bytes = ~4 GB just for the grid</li>
+    <li><strong>Time:</strong> Even at 10ns per cell: 52M cells = ~0.5 seconds per BFS pass — manageable, but per-hour simulation with snapshots and metadata multiplies this significantly</li>
+    <li><strong>Snapshot storage:</strong> 10 hourly snapshots × 4 GB = 40 GB</li>
+    <li><strong>Real-time requirement:</strong> Agencies need updates every minute, not every hour</li>
+  </ul>
+
+  <h3>Optimization Strategies</h3>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Strategy</th><th>How It Helps</th><th>Complexity Reduction</th><th>Trade-off</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Spatial Partitioning</td>
+          <td>Divide grid into tiles; only simulate active tiles (ones near fire)</td>
+          <td>O(fire_perimeter²) instead of O(total_area)</td>
+          <td>Border tile coordination overhead</td>
+        </tr>
+        <tr>
+          <td>Quadtrees</td>
+          <td>Represent uniform regions (ocean, bare rock, water) as single large cells; expand only where heterogeneous</td>
+          <td>50–90% memory reduction in parks with large uniform zones</td>
+          <td>Complex implementation for split/merge operations</td>
+        </tr>
+        <tr>
+          <td>Sparse Grids</td>
+          <td>Store only non-tree cells (water, firebreaks, burning cells) in a hash map; assume tree everywhere else</td>
+          <td>Memory proportional to active cells, not total grid</td>
+          <td>Hash map overhead vs array access</td>
+        </tr>
+        <tr>
+          <td>Multi-Resolution Maps</td>
+          <td>Coarse 100m grid for early prediction; switch to 10m only for active fire zone</td>
+          <td>10× speedup for overview; precision only where needed</td>
+          <td>Resolution mismatch at zone boundaries</td>
+        </tr>
+        <tr>
+          <td>Distributed Processing</td>
+          <td>Partition grid across multiple servers; each handles a region; border exchange via message passing</td>
+          <td>Near-linear speedup with more machines</td>
+          <td>Network latency; partition balancing</td>
+        </tr>
+        <tr>
+          <td>Parallel Simulation (CPU)</td>
+          <td>Use Python multiprocessing or C++ OpenMP; process each BFS level in parallel across threads</td>
+          <td>Near O(N×M / num_cores)</td>
+          <td>Shared memory synchronization</td>
+        </tr>
+        <tr>
+          <td>GPU Acceleration</td>
+          <td>Map grid to CUDA cores; each GPU thread handles one cell; neighbor updates are embarrassingly parallel</td>
+          <td>1000× speedup possible (NVIDIA A100 has 6912 cores)</td>
+          <td>GPU memory limits; requires CUDA expertise</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Maintaining Responsiveness</h3>
+  <p>
+    For real-time use by emergency management teams, responsiveness is maintained through:
+  </p>
+  <ul>
+    <li><strong>Incremental BFS:</strong> Run only a fixed number of BFS steps per time slice, yield control back to UI, resume next frame</li>
+    <li><strong>Async processing:</strong> Background thread runs simulation; UI thread reads completed snapshots</li>
+    <li><strong>Progressive rendering:</strong> Display coarse-resolution updates instantly; refine in background</li>
+    <li><strong>Precomputed risk maps:</strong> Cache terrain/vegetation factors; only recompute when weather changes</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 9 -->
+<div class="section" id="s9">
+  <div class="section-header">
+    <span class="section-num">09</span>
+    <h2>Area Analysis Report Design</h2>
+  </div>
+  <p>After simulation, the system generates a structured report for disaster management agencies. Below is a sample report structure for a simulated fire event:</p>
+
+  <div class="report-card">
+    <h4>🌲 Forest Fire Incident Report — Area Analysis</h4>
+    <div class="report-grid">
+      <div class="report-item">
+        <div class="report-item-label">Report ID</div>
+        <div class="report-item-val">FFR-2024-0715-001</div>
+      </div>
+      <div class="report-item">
+        <div class="report-item-label">Incident Start</div>
+        <div class="report-item-val">15 July 2024, 14:30 IST</div>
+      </div>
+      <div class="report-item">
+        <div class="report-item-label">Location</div>
+        <div class="report-item-val">Grid (2,2) — Sector 7-Alpha</div>
+      </div>
+      <div class="report-item">
+        <div class="report-item-label">Simulation Duration</div>
+        <div class="report-item-val">8 Hours</div>
+      </div>
+      <div class="report-item">
+        <div class="report-item-label">Total Affected Area</div>
+        <div class="report-item-val fire-val">34 hectares (340,000 m²)</div>
+      </div>
+      <div class="report-item">
+        <div class="report-item-label">Cells Burned</div>
+        <div class="report-item-val fire-val">34 cells × 1 ha</div>
+      </div>
+      <div class="report-item">
+        <div class="report-item-label">Cells Surviving</div>
+        <div class="report-item-val safe-val">86 cells (71.7%)</div>
+      </div>
+      <div class="report-item">
+        <div class="report-item-label">Fire Containment</div>
+        <div class="report-item-val safe-val">East bank — River Ramganga</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Report Field</th><th>Data</th><th>Source</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Burn Severity — High</td><td>12 cells (oldest burn, direct ignition zone)</td><td>burn_hour ≤ 2</td></tr>
+        <tr><td>Burn Severity — Medium</td><td>15 cells</td><td>burn_hour 3–5</td></tr>
+        <tr><td>Burn Severity — Low</td><td>7 cells (perimeter, extinguished early)</td><td>burn_hour ≥ 6</td></tr>
+        <tr><td>High-Risk Remaining Zones</td><td>Rows 5–9, East sector (dry vegetation, downwind)</td><td>Probability map analysis</td></tr>
+        <tr><td>Fire Progression Timeline</td><td>2.4 ha/hr average spread rate</td><td>hourly_burned histogram</td></tr>
+        <tr><td>Predicted Spread Direction</td><td>East-Northeast (Wind: E @ 45 km/h)</td><td>Wind vector + terrain slope</td></tr>
+        <tr><td>Safe Evacuation Corridors</td><td>Western sector (firebreak row 4) — cleared</td><td>Firebreak + water cell tracing</td></tr>
+        <tr><td>Fire Containment Boundary</td><td>Row 4 firebreak (W to E) + Column 5 river</td><td>Barrier cell mapping</td></tr>
+        <tr><td>Nearest Water Resources</td><td>River at columns 5–6; Distance: 300m from ignition</td><td>WATER cell BFS from ignition</td></tr>
+        <tr><td>Recommended Strategy</td><td>Aerial water drop on rows 5–7; Ground crews at firebreak perimeter</td><td>Risk map + spread direction</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 10 -->
+<div class="section" id="s10">
+  <div class="section-header">
+    <span class="section-num">10</span>
+    <h2>Sample Input and Output</h2>
+  </div>
+
+  <h3>Input Grid (10×12 Forest)</h3>
+  <div class="diagram">
+<span class="title-line">INITIAL STATE — Hour 0</span>
+Legend: T=Tree  🔥=Fire(ignition)  W=Water  B=Firebreak  X=Burned
+
+     C0   C1   C2   C3   C4   C5   C6   C7   C8   C9   C10  C11
+R0 [ T ][ T ][ T ][ T ][ T ][ <span class="water-cell">W </span>][ <span class="water-cell">W </span>][ T ][ T ][ T ][ T ][ T ]
+R1 [ T ][ T ][ T ][ T ][ T ][ <span class="water-cell">W </span>][ <span class="water-cell">W </span>][ T ][ T ][ T ][ T ][ T ]
+R2 [ T ][ T ][<span class="fire-cell">🔥</span>][ T ][ T ][ <span class="water-cell">W </span>][ <span class="water-cell">W </span>][ T ][ T ][ T ][ T ][ T ]  ← Ignition
+R3 [ T ][ T ][ T ][ T ][ T ][ <span class="water-cell">W </span>][ <span class="water-cell">W </span>][ T ][ T ][ T ][ T ][ T ]
+R4 [ T ][ T ][ T ][ T ][ B ][ B ][ B ][ B ][ T ][ T ][ T ][ T ]  ← Firebreak
+R5 [ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ]
+R6 [ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ]
+R7 [ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ]
+R8 [ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ]
+R9 [ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ]
+
+Environment: Wind=East@45km/h  Temp=38°C  Humidity=18%
+  </div>
+
+  <h3>Simulation Output After Each Hour</h3>
+  <div class="diagram">
+<span class="title-line">HOUR 2 — Fire spreading East (with wind) + N/S/W</span>
+
+     C0   C1   C2   C3   C4   C5  C6  C7  C8  C9  C10 C11
+R0 [ T ][ T ][ T ][<span class="fire-cell">🔥</span>][ T ][ W ][ W ][ T ][ T ][ T ][ T ][ T ]
+R1 [ T ][ T ][<span class="fire-cell">🔥</span>][ X ][ T ][ W ][ W ][ T ][ T ][ T ][ T ][ T ]
+R2 [<span class="fire-cell">🔥</span>][ X ][ X ][ X ][<span class="fire-cell">🔥</span>][ W ][ W ][ T ][ T ][ T ][ T ][ T ]  ← East blocked by water
+R3 [ T ][ T ][<span class="fire-cell">🔥</span>][ X ][ T ][ W ][ W ][ T ][ T ][ T ][ T ][ T ]
+R4 [ T ][ T ][ T ][<span class="fire-cell">🔥</span>][ B ][ B ][ B ][ B ][ T ][ T ][ T ][ T ]  ← Firebreak holds
+R5 [ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ]
+...
+
+<span class="title-line">HOUR 5 — Fire pushing South along West side; East blocked by water+firebreak</span>
+
+     C0   C1   C2   C3   C4   C5  C6  C7  ...
+R0 [ T ][ X ][ X ][ X ][ T ][ W ][ W ][ T ]
+R1 [ X ][ X ][ X ][ X ][<span class="fire-cell">🔥</span>][ W ][ W ][ T ]
+R2 [ X ][ X ][ X ][ X ][ T ][ W ][ W ][ T ]
+R3 [ X ][ X ][ X ][ X ][ T ][ W ][ W ][ T ]
+R4 [<span class="fire-cell">🔥</span>][ X ][ X ][ X ][ B ][ B ][ B ][ B ]  ← Firebreak contains spread
+R5 [ T ][<span class="fire-cell">🔥</span>][ T ][ T ][ T ][ T ][ T ][ T ]  ← Narrow breach at C1
+R6 [ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ]
+
+<span class="title-line">HOUR 8 — FINAL STATE</span>
+
+     C0   C1   C2   C3   C4   C5  C6  C7  C8  C9  C10 C11
+R0 [ X ][ X ][ X ][ X ][ T ][ W ][ W ][ T ][ T ][ T ][ T ][ T ]
+R1 [ X ][ X ][ X ][ X ][ T ][ W ][ W ][ T ][ T ][ T ][ T ][ T ]
+R2 [ X ][ X ][ X ][ X ][ T ][ W ][ W ][ T ][ T ][ T ][ T ][ T ]
+R3 [ X ][ X ][ X ][ X ][ T ][ W ][ W ][ T ][ T ][ T ][ T ][ T ]
+R4 [ X ][ X ][ X ][ X ][ B ][ B ][ B ][ B ][ T ][ T ][ T ][ T ]
+R5 [ T ][ X ][ X ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ]
+R6 [ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ][ T ]
+R7-R9: All safe (T) ← Firebreak successfully contained southward spread
+
+══════════════════════════════════════════════════════
+Burning: 0  |  Burned: 34  |  Safe: 86
+Total burned area: 34 hectares (34% of forest)
+East sector SAVED by river. South sector SAVED by firebreak.
+══════════════════════════════════════════════════════
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 11 -->
+<div class="section" id="s11">
+  <div class="section-header">
+    <span class="section-num">11</span>
+    <h2>Advantages and Limitations</h2>
+  </div>
+
+  <h3>Practical Advantages</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Advantage</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>Intuitive level-by-level expansion</td><td>Each BFS level naturally represents one time unit (hour), making output easy to interpret</td></tr>
+        <tr><td>Guaranteed finite termination</td><td>BFS terminates when queue is empty — it cannot loop infinitely</td></tr>
+        <tr><td>Natural barrier handling</td><td>Water bodies and firebreaks are trivially modeled as unreachable nodes — no special logic needed</td></tr>
+        <tr><td>Multi-source fire support</td><td>Multiple simultaneous ignition points are handled identically — just seed multiple queue entries</td></tr>
+        <tr><td>Shortest-path property</td><td>BFS finds the earliest possible arrival time of fire at any cell — useful for evacuation timing</td></tr>
+        <tr><td>Extensible to probabilities</td><td>Probabilistic spread is a natural extension requiring only a random check per edge</td></tr>
+        <tr><td>Low memory per cell</td><td>Each cell only needs state (1 byte), metadata (~16 bytes), and visited flag (bit) — cache-efficient</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Assumptions and Limitations</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Limitation</th><th>Impact</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>Discrete grid representation</td><td>Real fires have continuous perimeters; grid cells can only be fully burning or not</td><td>Higher resolution grids or continuous-space models</td></tr>
+        <tr><td>Synchronous spread (all cells at same hour)</td><td>Real fire fronts have irregular timing based on local fuel conditions</td><td>Priority queue (Dijkstra-like) with fractional hour granularity</td></tr>
+        <tr><td>4-connected grid (no diagonals by default)</td><td>Oblique fire spread is underrepresented</td><td>8-connected grid; adds complexity but improves realism</td></tr>
+        <tr><td>Simplified wind model</td><td>Real wind is turbulent, variable; our model uses constant direction vector</td><td>Integrate weather API time series; update env_params hourly</td></tr>
+        <tr><td>No ember transport (spotting)</td><td>Real fires throw embers kilometers ahead — BFS can't model non-adjacent ignition</td><td>Separate ember trajectory module; inject new BFS seeds dynamically</td></tr>
+        <tr><td>Static vegetation model</td><td>Vegetation properties assumed constant; real fires alter local humidity</td><td>Dynamic metadata update during simulation</td></tr>
+        <tr><td>No firefighting actions</td><td>Simulation does not model water drops, backfires, or crew intervention</td><td>Add firebreak placement and extinguishment operations to grid</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 12 -->
+<div class="section" id="s12">
+  <div class="section-header">
+    <span class="section-num">12</span>
+    <h2>Future Enhancements</h2>
+  </div>
+
+  <h3>Machine Learning Predictions</h3>
+  <p>
+    A Random Forest or LSTM recurrent neural network can be trained on historical fire data (satellite imagery time series, fire perimeters, weather logs) to predict spread probability far more accurately than our formula. The ML model would replace the <code>compute_spread_probability()</code> function, taking in richer feature vectors and outputting calibrated probabilities. Transfer learning from trained fire models (e.g., FARSITE's ML adaptations) can accelerate deployment.
+  </p>
+
+  <h3>Satellite Data Integration</h3>
+  <p>
+    NASA's MODIS and VIIRS instruments provide real-time active fire detection at 375m–1km resolution with near-daily global coverage. The Sentinel-2 satellite provides 10m multispectral imagery. Integration pipeline: Download fire hotspot data via NASA FIRMS API → georeference to simulation grid → auto-seed BFS with detected burning cells → update vegetation/moisture layers from NDVI (Normalized Difference Vegetation Index) and NDMI (Moisture Index) bands.
+  </p>
+
+  <h3>Drone-Based Monitoring</h3>
+  <p>
+    Autonomous UAVs (drones) can fly fire perimeters and transmit real-time thermal imagery at 1–5m resolution. A drone-to-simulation pipeline would: capture thermal video → detect burning pixels via computer vision → update grid cells in real time → recompute BFS frontier from observed state. This closes the simulation-reality loop, correcting model drift.
+  </p>
+
+  <h3>Real-Time Weather API Integration</h3>
+  <p>
+    Weather services like OpenWeatherMap, IBM Weather Company, or NOAA provide hourly forecast APIs. The simulation loop can query these APIs at each time step to update <code>EnvironmentParams</code> (wind, temperature, humidity) dynamically. For extreme accuracy, a Numerical Weather Prediction (NWP) model (like WRF — Weather Research and Forecasting) can be coupled to provide fire-atmosphere interaction modeling.
+  </p>
+
+  <h3>GIS Integration</h3>
+  <p>
+    Geographic Information System layers (ESRI ArcGIS / QGIS / GDAL) provide accurate terrain elevation (Digital Elevation Models — DEM), road networks, administrative boundaries, and vegetation classification. Importing GIS data via GDAL/OGR into the simulation replaces synthetic grid data with real topographic detail. Output can also be exported as GeoTIFF or shapefile for use in emergency management systems.
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Enhancement</th><th>Technology Stack</th><th>Expected Benefit</th><th>Timeline</th></tr></thead>
+      <tbody>
+        <tr><td>ML Probability Model</td><td>PyTorch LSTM / scikit-learn RF</td><td>2–5× accuracy improvement</td><td>6–12 months</td></tr>
+        <tr><td>Satellite Integration</td><td>NASA FIRMS API + GDAL</td><td>Real-time seeding, automatic grid updates</td><td>3–6 months</td></tr>
+        <tr><td>Drone Monitoring</td><td>OpenCV + MAVLink + ROS</td><td>1–5m precision fire perimeter</td><td>12–18 months</td></tr>
+        <tr><td>Weather API</td><td>OpenWeatherMap / WRF</td><td>Dynamic environment parameters</td><td>1–3 months</td></tr>
+        <tr><td>GIS Integration</td><td>GDAL / ArcPy / QGIS</td><td>Real terrain, vegetation maps</td><td>3–6 months</td></tr>
+        <tr><td>GPU Acceleration</td><td>CUDA / cuBFS / PyTorch Sparse</td><td>100–1000× speedup for large grids</td><td>6–12 months</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 13 -->
+<div class="section" id="s13">
+  <div class="section-header">
+    <span class="section-num">13</span>
+    <h2>Viva / Exam Questions</h2>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">1</span>Why is BFS more suitable than DFS for fire spread simulation?</div>
+    <div class="qa-answer">BFS explores all nodes at distance <em>d</em> before nodes at distance <em>d+1</em>, naturally modeling wave-like outward expansion — just like a real fire front. DFS would dive deep into one path (e.g., the northern edge) while neglecting adjacent cells, giving a completely unrealistic fire shape. BFS also naturally produces the shortest-path (earliest ignition time) to any cell, which is critical for evacuation planning. DFS gives no such guarantee.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">2</span>What is the time complexity of your BFS-based simulation and why?</div>
+    <div class="qa-answer">The time complexity is <strong>O(H × N × M)</strong> where H = hours simulated, N = rows, M = columns. The core BFS visits each cell exactly once — O(N×M) — because the visited set prevents re-processing. Each cell has a constant number of neighbors (max 4), and per-neighbor work is O(1) (probability computation + queue insert). Multiplying by H for hourly snapshots gives O(H×N×M). Space complexity is the same due to snapshot storage.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">3</span>How do you model hourly time steps in a BFS? BFS doesn't natively have time.</div>
+    <div class="qa-answer">We store a timestamp (hour) with each queue element as a triplet (row, col, hour). When a cell at hour <em>h</em> is dequeued, its neighbors are enqueued with hour <em>h+1</em>. When we encounter a cell with hour = current_hour + 1 for the first time, we detect the level boundary and save a snapshot of the current grid state. This maps perfectly: all cells enqueued with the same hour value are processed in the same "round" — representing one hour of fire spread. Alternatively, we can use a double-buffer approach with current_queue and next_queue.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">4</span>What data structure does Python's deque provide and why is it better than a list for BFS?</div>
+    <div class="qa-answer"><code>collections.deque</code> is a doubly-linked list implementation that provides O(1) amortized <code>append()</code> (right end) and <code>popleft()</code> (left end). A Python list's <code>pop(0)</code> is O(n) because all remaining elements must shift left. For BFS with millions of cells, this difference is critical. deque also supports efficient rotation and maxlen-bounded queues for memory management.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">5</span>How do water bodies and firebreaks act as barriers in your model?</div>
+    <div class="qa-answer">In the BFS neighbor processing loop, before enqueuing a neighbor, we check its state. If <code>grid[nr][nc] in {WATER, FIREBREAK}</code>, we <code>continue</code> (skip that neighbor entirely). This means fire can never be enqueued from a barrier cell, and thus it can never spread across barriers — exactly modeling their physical containment property. Water is a natural absolute barrier; firebreaks are cleared strips of land that remove fuel, preventing fire crossing.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">6</span>Explain the role of the visited set in your simulation.</div>
+    <div class="qa-answer">The visited set prevents a cell from being enqueued multiple times. Without it, a burning cell could be added to the queue by each of its burning neighbors independently, causing exponential redundant processing and incorrect fire spread counting. With the visited set, the first time a cell is marked as igniting, we add it to visited; all subsequent attempts to enqueue it from other burning neighbors are immediately rejected. This maintains the O(N×M) complexity guarantee.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">7</span>How does wind direction affect the spread probability in your model?</div>
+    <div class="qa-answer">We compute a wind factor using the dot product of the fire spread direction vector (src→dst normalized) with the wind velocity vector. If fire spreads in the same direction as wind, the dot product is positive, increasing the spread probability (up to 3×). If fire would spread against the wind (upwind), the dot product is negative, reducing probability (down to ~0.15). The magnitude of the wind velocity further scales this effect. This correctly models why fires spread rapidly downwind and slowly upwind in real scenarios.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">8</span>What is multi-source BFS and when is it used in fire simulation?</div>
+    <div class="qa-answer">Multi-source BFS initializes the queue with <em>multiple</em> source nodes simultaneously, rather than a single source. In fire simulation, real fires often have multiple simultaneous ignition points (multiple lightning strikes, embers from a main fire starting new blazes). By seeding all initial burning cells into the queue at hour=0, BFS naturally handles them all concurrently — their fronts expand in parallel and may merge. The algorithm itself doesn't need modification; only the initialization changes.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">9</span>What is the worst-case space complexity and what causes it?</div>
+    <div class="qa-answer">Worst-case space complexity is <strong>O(H × N × M)</strong>. The dominant factor is the hourly snapshot storage — each snapshot is a deep copy of the N×M grid, and we store H of them. The BFS queue itself is at most O(N×M) in the worst case (when the entire grid perimeter is simultaneously on fire — a ring-shaped fire front). The visited set is also O(N×M). To reduce memory, we can compute statistics on-the-fly instead of storing full snapshots, reducing to O(N×M) total.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">10</span>How would you modify the algorithm to find safe evacuation routes?</div>
+    <div class="qa-answer">We run a second BFS from safe exits (park boundaries, roads) BACKWARD through cells that will <em>not</em> be burned within the next <em>k</em> hours. We compare the fire arrival time at each cell (from the fire BFS) with the human evacuation time (from the exit BFS). A cell is on a safe route if <em>evacuation_arrival_time &lt; fire_arrival_time</em>. Cells satisfying this constraint can be connected to form safe corridors. This is essentially a time-dependent shortest path problem layered on top of the fire simulation output.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">11</span>Why is BFS classified as a complete and optimal algorithm in this context?</div>
+    <div class="qa-answer">BFS is <strong>complete</strong> because it is guaranteed to find all reachable cells — it won't miss any cell that fire can potentially reach given unlimited time. BFS is <strong>optimal</strong> in terms of the minimum number of hops (hours) to reach any cell — it discovers the fastest possible fire path to every cell. This optimality is critical: the fire arrival time at any cell from the BFS represents a lower bound (earliest possible ignition), which is the most dangerous scenario for evacuation planning.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">12</span>How would you scale this simulation to handle a 500km² national park at 10m resolution?</div>
+    <div class="qa-answer">At 10m resolution, a 500km² park has 5 billion cells — far too large for a single-machine BFS in memory. I would use: (1) <strong>Spatial partitioning</strong> — divide into tiles, only simulate active tiles near the fire front; (2) <strong>Sparse grid representation</strong> — store only non-tree and active cells in a hash map; (3) <strong>GPU acceleration</strong> — map grid to CUDA cores for parallel per-cell processing; (4) <strong>Distributed BFS</strong> — partition across multiple servers with border-exchange protocols; (5) <strong>Multi-resolution</strong> — 100m resolution for overview, 10m only in active zone.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">13</span>What is the Rothermel fire spread model and how does it relate to your simulation?</div>
+    <div class="qa-answer">The Rothermel model is a physics-based mathematical model (developed for the USFS in 1972) that calculates fire spread rate based on fuel moisture, wind speed, slope, and fuel bed properties using empirically derived equations. Our simulation uses a simplified approximation of Rothermel's slope and wind factors in the probability computation. A production system would replace our heuristic formula with the full Rothermel equations for the rate of spread (ROS) in m/min, then convert ROS to BFS spread probability at each cell boundary.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">14</span>How is the BFS-based simulation different from a cellular automaton (CA) approach?</div>
+    <div class="qa-answer">A <strong>Cellular Automaton</strong> updates all cells simultaneously at each time step based on local neighborhood rules (like Game of Life). Every cell checks its neighbors and updates state, regardless of whether fire is near. This is O(N×M) per time step even with no active fire. BFS only processes cells on the <em>active fire frontier</em> — significantly more efficient when the fire covers a small fraction of the grid. However, CA supports more complex inter-cell interactions and arbitrary rule sets. Both are valid approaches; BFS is more efficient for the early stages of a localized fire.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-question"><span class="qa-num">15</span>What graph theory concepts underlie your forest fire simulation?</div>
+    <div class="qa-answer">The terrain grid is an <strong>implicit graph</strong> — vertices are cells, edges connect adjacent cells. The fire simulation is a <strong>multi-source BFS</strong> on this graph. Barriers (water, firebreaks) represent <strong>removed edges</strong>. Spread probability converts it to a <strong>probabilistic graph traversal</strong>. Fire arrival time maps to <strong>BFS level / shortest path length</strong>. The problem of finding safe evacuation routes is a <strong>time-dependent shortest path problem</strong>. Fire containment analysis uses <strong>graph cut</strong> theory — identifying minimum vertex/edge cuts that isolate the fire source from unburned regions.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ SECTION 14 -->
+<div class="section" id="s14">
+  <div class="section-header">
+    <span class="section-num">14</span>
+    <h2>Conclusion</h2>
+  </div>
+
+  <p>
+    This project demonstrates how a foundational computer science algorithm — Breadth-First Search — can be directly applied to one of the most pressing environmental challenges of our time: predicting and managing the spread of forest fires.
+  </p>
+  <p>
+    The natural correspondence between BFS's level-by-level expansion and the outward progression of a fire perimeter makes BFS not just a convenient choice, but a conceptually correct model for this domain. Each BFS level represents one hour of fire spread; the queue is the fire frontier; visited nodes are burned cells; barriers are unreachable nodes. This elegance is the strength of the approach.
+  </p>
+  <p>
+    By extending pure BFS with environmental factors — wind vectors, vegetation density, moisture levels, terrain slope, temperature, and humidity — we transform a deterministic traversal into a probabilistic physical model. The simulation successfully demonstrates how water bodies and firebreaks contain fire spread, how wind accelerates fire in one direction, and how dry, dense vegetation dramatically increases burn rates.
+  </p>
+  <p>
+    The <strong>O(N × M)</strong> time and space complexity of the core BFS makes the algorithm tractable for real deployments at meaningful scales. For truly large national parks, we've identified optimization paths — spatial partitioning, sparse grids, GPU acceleration, and distributed processing — that can extend the approach by several orders of magnitude.
+  </p>
+  <p>
+    For emergency response teams, the simulation provides exactly what is most valuable: a <em>proactive prediction</em> of where fire will be in the next several hours, along with concrete outputs — burn severity maps, safe evacuation corridors, containment boundaries, and resource recommendations — that directly support life-saving decisions.
+  </p>
+
+  <div class="callout fire">
+    <strong>Final Takeaway:</strong> Breadth-First Search is more than an algorithm — it is a physical model of wavefront propagation. Wherever a phenomenon spreads outward from a source through a network of connected nodes, BFS provides the correct computational framework. Forest fire simulation is one compelling instance of this universal pattern, alongside epidemic spread modeling, network packet routing, and flood simulation. Mastering BFS is mastering the mathematics of spreading processes.
+  </div>
+
+  <h3>Key Takeaways Summary</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Concept</th><th>Mapping in Project</th></tr></thead>
+      <tbody>
+        <tr><td>BFS Source Node</td><td>Initial fire ignition point(s)</td></tr>
+        <tr><td>BFS Level / Distance</td><td>Hours of fire spread elapsed</td></tr>
+        <tr><td>BFS Queue</td><td>Active fire frontier (currently burning cells)</td></tr>
+        <tr><td>Visited Set</td><td>All burned/currently burning cells</td></tr>
+        <tr><td>Unreachable Nodes</td><td>Water bodies, firebreaks (absolute barriers)</td></tr>
+        <tr><td>Edge Weights (probabilistic)</td><td>Spread probability based on environment factors</td></tr>
+        <tr><td>BFS Completeness</td><td>Guaranteed discovery of all reachable fire-susceptible cells</td></tr>
+        <tr><td>BFS Optimality</td><td>Earliest possible fire arrival time at any cell</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- end main-wrap -->
+
+<div class="footer">
+  Forest Fire Spread Simulation — BFS Academic Project &nbsp;|&nbsp;
+  Data Structures &amp; Algorithms &nbsp;|&nbsp;
+  Environmental Safety &amp; Disaster Management Domain<br/>
+  Python 3.x · collections.deque · 2D Matrix · Probabilistic BFS &nbsp;|&nbsp;
+  Complexity: O(H × N × M)
+</div>
+
+</body>
+</html>
